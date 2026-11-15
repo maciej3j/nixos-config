@@ -7,17 +7,33 @@ Flake z konfiguracją NixOS dla dwóch maszyn:
 | `nixos-desktop` | GTX 1660 SUPER | BIOS/legacy, GRUB na `/dev/sda` |
 | `nixos-laptop` | RTX 2060 | UEFI (do potwierdzenia) |
 
+## Co jest w repo
+
+Wszystkie programy i dotfiles są zadeklarowane w repo — świeża instalacja
+odtwarza je w całości.
+
+| Co | Gdzie |
+|---|---|
+| Programy CLI / dev (neovim, helix, rustup, python, LSP…) | `modules/system/packages.nix` |
+| Programy graficzne (Hyprland, waybar, firefox, thunar…) | `modules/desktop/packages.nix` |
+| Konfiguracja Hyprlanda, waybara | `home/dotfiles/hypr`, `home/dotfiles/waybar` |
+| `~/.zshrc` (starship, zoxide, fzf, zellij) | `home/dotfiles/zshrc` |
+| Skrypt `wallpaper-random` | `home/scripts/wallpaper-random` |
+| Konfiguracja helix / kitty | `modules/desktop/default.nix` (przez `/etc/xdg`) |
+
+Dotfiles trafiają do `~/.config` i `~/.local/bin` przez home-manager.
+
 ## Struktura
 
 ```
 flake.nix                  # wejścia + definicje hostów
 hosts/
-  <host>/default.nix       # rzeczy specyficzne dla maszyny (hostname, GRUB, GPU)
-  <host>/hardware-configuration.nix   # WYGENEROWANY lokalnie, nie współdzielony
+  <host>/default.nix       # hostname, GRUB, specyfika maszyny
+  <host>/hardware-configuration.nix   # generowany lokalnie (dyski, CPU, moduły)
 modules/
-  system/                  # wspólne: sieć, audio, użytkownicy, pakiety CLI
-  desktop/                 # wspólne: Hyprland, SDDM, NVIDIA, pakiety GUI
-home/                      # home-manager: dotfiles (hypr, waybar) + skrypty
+  system/                  # sieć, audio, użytkownicy, pakiety CLI
+  desktop/                 # Hyprland, SDDM, NVIDIA, pakiety GUI
+home/                      # home-manager: dotfiles + skrypty
 ```
 
 ## Codzienna praca
@@ -33,10 +49,13 @@ Po zmianie `flake.nix`:
 nix flake update
 ```
 
-## Instalacja na nowej maszynie (laptop)
+## Instalacja na nowej maszynie
 
 1. Boot z ISO NixOS, połącz się z WiFi.
-2. Partycjonowanie + montaż (przykład dla UEFI, cały dysk):
+
+2. Partycjonowanie + montaż.
+
+   Laptop (UEFI, cały dysk):
 
    ```bash
    parted /dev/nvme0n1 -- mklabel gpt
@@ -49,6 +68,16 @@ nix flake update
    mount --mkdir /dev/nvme0n1p1 /mnt/boot
    ```
 
+   Desktop (BIOS/legacy):
+
+   ```bash
+   parted /dev/sda -- mklabel msdos
+   parted /dev/sda -- mkpart primary ext4 1MiB 100%
+   parted /dev/sda -- set 1 boot on
+   mkfs.ext4 /dev/sda1
+   mount /dev/sda1 /mnt
+   ```
+
 3. Sklonuj repo i wygeneruj konfigurację sprzętu:
 
    ```bash
@@ -56,62 +85,44 @@ nix flake update
    git clone git@github.com:maciej3j/nixos-config.git /mnt/home/niezlykoksu/nixos-config
    nixos-generate-config --root /mnt
    cp /mnt/etc/nixos/hardware-configuration.nix \
-      /mnt/home/niezlykoksu/nixos-config/hosts/nixos-laptop/hardware-configuration.nix
+      /mnt/home/niezlykoksu/nixos-config/hosts/<host>/hardware-configuration.nix
    ```
 
-4. Sprawdź `hosts/nixos-laptop/default.nix` (GRUB: UEFI vs BIOS, ewentualny PRIME)
+   `<host>` to `nixos-desktop` albo `nixos-laptop`. Ten krok jest zawsze
+   konieczny po zmianie partycji — plik w repo to tylko snapshot z poprzedniej
+   instalacji i zawiera UUID dysku.
+
+4. Sprawdź `hosts/<host>/default.nix` (GRUB: UEFI vs BIOS, ewentualny PRIME)
    i zainstaluj:
 
    ```bash
-   nixos-install --flake /mnt/home/niezlykoksu/nixos-config#nixos-laptop
+   nixos-install --flake /mnt/home/niezlykoksu/nixos-config#<host>
    ```
 
-5. Po restarcie ustaw hasło, jeśli trzeba: `passwd niezlykoksu`.
+5. Ustaw hasło użytkownika:
 
-## Odtworzenie desktopa od zera
+   ```bash
+   nixos-enter --root /mnt -c 'passwd niezlykoksu'
+   ```
 
-Obecny układ: MBR (`dos`), BIOS/legacy, GRUB w MBR `/dev/sda`,
-`/` = ext4 o UUID `0932b15a-dc7e-42cb-a4bd-495914ab1505`.
-`hardware-configuration.nix` wskazuje root po UUID, więc **nowy dysk musi dostać
-ten sam UUID** — inaczej system nie wstanie. Alternatywa: po `mkfs` uruchomić
-`nixos-generate-config --root /mnt` i podmienić plik w `hosts/nixos-desktop/`.
+## Różnice per host
 
-```bash
-# live ISO w trybie BIOS/legacy
-parted /dev/sda -- mklabel msdos
-parted /dev/sda -- mkpart primary ext4 1MiB 100%
-parted /dev/sda -- set 1 boot on
-mkfs.ext4 -U 0932b15a-dc7e-42cb-a4bd-495914ab1505 /dev/sda1
-mount /dev/sda1 /mnt
+| | desktop | laptop |
+|---|---|---|
+| `networking.hostName` | `nixos-desktop` | `nixos-laptop` |
+| GRUB | `device = "/dev/sda"` (BIOS) | `device = "nodev"` + `efiSupport` |
+| GPU | GTX 1660 SUPER (open) | RTX 2060 (open) + opcjonalny PRIME |
 
-nix-shell -p git
-git clone git@github.com:maciej3j/nixos-config.git /mnt/home/niezlykoksu/nixos-config
-nixos-install --flake /mnt/home/niezlykoksu/nixos-config#nixos-desktop
+## Czego repo nie zawiera
 
-# hasło użytkownika
-nixos-enter --root /mnt -c 'passwd niezlykoksu'
-```
-
-Jeśli instalujesz na innym dysku (np. `/dev/nvme0n1`), zmień
-`boot.loader.grub.device` w `hosts/nixos-desktop/default.nix`.
-
-## Czego repo nie zawiera (dane osobiste)
-
-System odtworzy się 1:1, ale te rzeczy trzeba skopiować osobno:
-
-- `~/.ssh` (klucze), `~/.config/opencode`, `~/.config/{btop,lazygit,zellij,Thunar,xfce4}`
-- `~/Pictures/wallpapers` (ok. 780 MB; `hyprpaper.conf` ma zaszyty `$HOME/...`)
-- `~/.rustup` (toolchainy instalowane przez `rustup`, ok. 1.6 GB)
-- obrazy Dockera (`docker save`/`load`)
-
-Git identity nie jest ustawiona globalnie — po reinstalacji dodaj
-`~/.config/git/config` z `user.name`/`user.email`.
+Dane osobiste: `~/.ssh`, `~/.rustup`, obrazy Dockera, `~/.config/opencode`
+(oraz tapety w `~/Pictures/wallpapers`, jeśli mają być). To nie jest potrzebne
+do działania systemu.
 
 ## Uwagi
 
-- `hosts/nixos-laptop/hardware-configuration.nix` jest placeholderem z assertionem —
-  dopóki nie zostanie wygenerowany na laptopie, budowa tego hosta kończy się błędem.
-- Tapety: `~/Pictures/wallpapers/catppuccin-mocha` (skrypt `wallpaper-random`
-  wykrywa monitor automatycznie).
+- `hosts/nixos-laptop/hardware-configuration.nix` jest placeholderem z
+  assertionem — dopóki nie zostanie wygenerowany na laptopie, budowa tego
+  hosta kończy się czytelnym błędem.
 - Home-manager przy pierwszej aktywacji robi backup istniejących plików
   w `~/.config` z sufiksem `.hm-backup`.

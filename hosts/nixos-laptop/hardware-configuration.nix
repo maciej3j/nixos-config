@@ -20,7 +20,7 @@
 
   assertions = [
     {
-      assertion = false;
+      assertion = config.fileSystems."/".device != "/dev/disk/by-uuid/REPLACE-ME";
       message = ''
         hosts/nixos-laptop/hardware-configuration.nix jest placeholderem.
         Wygeneruj go na laptopie:
