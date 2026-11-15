@@ -68,6 +68,45 @@ nix flake update
 
 5. Po restarcie ustaw hasło, jeśli trzeba: `passwd niezlykoksu`.
 
+## Odtworzenie desktopa od zera
+
+Obecny układ: MBR (`dos`), BIOS/legacy, GRUB w MBR `/dev/sda`,
+`/` = ext4 o UUID `0932b15a-dc7e-42cb-a4bd-495914ab1505`.
+`hardware-configuration.nix` wskazuje root po UUID, więc **nowy dysk musi dostać
+ten sam UUID** — inaczej system nie wstanie. Alternatywa: po `mkfs` uruchomić
+`nixos-generate-config --root /mnt` i podmienić plik w `hosts/nixos-desktop/`.
+
+```bash
+# live ISO w trybie BIOS/legacy
+parted /dev/sda -- mklabel msdos
+parted /dev/sda -- mkpart primary ext4 1MiB 100%
+parted /dev/sda -- set 1 boot on
+mkfs.ext4 -U 0932b15a-dc7e-42cb-a4bd-495914ab1505 /dev/sda1
+mount /dev/sda1 /mnt
+
+nix-shell -p git
+git clone git@github.com:maciej3j/nixos-config.git /mnt/home/niezlykoksu/nixos-config
+nixos-install --flake /mnt/home/niezlykoksu/nixos-config#nixos-desktop
+
+# hasło użytkownika
+nixos-enter --root /mnt -c 'passwd niezlykoksu'
+```
+
+Jeśli instalujesz na innym dysku (np. `/dev/nvme0n1`), zmień
+`boot.loader.grub.device` w `hosts/nixos-desktop/default.nix`.
+
+## Czego repo nie zawiera (dane osobiste)
+
+System odtworzy się 1:1, ale te rzeczy trzeba skopiować osobno:
+
+- `~/.ssh` (klucze), `~/.config/opencode`, `~/.config/{btop,lazygit,zellij,Thunar,xfce4}`
+- `~/Pictures/wallpapers` (ok. 780 MB; `hyprpaper.conf` ma zaszyty `$HOME/...`)
+- `~/.rustup` (toolchainy instalowane przez `rustup`, ok. 1.6 GB)
+- obrazy Dockera (`docker save`/`load`)
+
+Git identity nie jest ustawiona globalnie — po reinstalacji dodaj
+`~/.config/git/config` z `user.name`/`user.email`.
+
 ## Uwagi
 
 - `hosts/nixos-laptop/hardware-configuration.nix` jest placeholderem z assertionem —
