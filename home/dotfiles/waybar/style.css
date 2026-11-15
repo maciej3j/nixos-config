@@ -1,0 +1,166 @@
+/* Catppuccin Mocha - Waybar */
+
+@import "mocha.css";
+
+/* Global */
+
+* {
+  font-family: "JetBrainsMono Nerd Font";
+  font-size: 16px;
+  font-weight: 600;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  transition: all 0.2s ease;
+}
+
+window#waybar {
+  background: transparent;
+  color: @text;
+}
+
+/* Main sections */
+
+.modules-left,
+.modules-center,
+.modules-right {
+  background: alpha(@base, 0.96);
+  border: 1px solid @surface0;
+  border-radius: 14px;
+  padding: 3px 8px;
+}
+
+/* Workspaces */
+
+#workspaces {
+  padding: 0 3px;
+}
+
+#workspaces button {
+  color: @overlay1;
+  background: transparent;
+  padding: 0 9px;
+  margin: 2px 2px;
+  border-radius: 9px;
+  min-width: 16px;
+}
+
+#workspaces button.active {
+  color: @base;
+  background: @mauve;
+}
+
+#workspaces button:hover {
+  color: @text;
+  background: @surface1;
+}
+
+#workspaces button.urgent {
+  color: @base;
+  background: @red;
+}
+
+/* Window title */
+
+#window {
+  color: @subtext1;
+  padding: 0 12px;
+}
+
+/* Clock */
+
+#clock {
+  color: @mauve;
+  padding: 0 12px;
+}
+
+/* Audio */
+
+#pulseaudio {
+  color: @blue;
+  padding: 0 9px;
+}
+
+#pulseaudio.muted {
+  color: @overlay0;
+}
+
+/* Network */
+
+#network {
+  color: @teal;
+  padding: 0 9px;
+}
+
+#network.disconnected {
+  color: @red;
+}
+
+/* System resources */
+
+#cpu {
+  color: @yellow;
+  padding: 0 9px;
+}
+
+#memory {
+  color: @pink;
+  padding: 0 9px;
+}
+
+/* Battery */
+
+#battery {
+  color: @green;
+  padding: 0 9px;
+}
+
+#battery.warning {
+  color: @peach;
+}
+
+#battery.critical {
+  color: @red;
+}
+
+#battery.charging {
+  color: @teal;
+}
+
+/* Tray */
+
+#tray {
+  padding: 0 8px;
+}
+
+#tray>.passive {
+  -gtk-icon-effect: dim;
+}
+
+#tray>.needs-attention {
+  -gtk-icon-effect: highlight;
+}
+
+/* Tooltips */
+
+tooltip {
+  background: @mantle;
+  border: 1px solid @surface1;
+  border-radius: 10px;
+}
+
+tooltip label {
+  color: @text;
+  padding: 5px;
+}
+
+/* Hover effects */
+
+#pulseaudio:hover,
+#network:hover,
+#cpu:hover,
+#memory:hover,
+#battery:hover {
+  background: @surface0;
+  border-radius: 8px;
+}

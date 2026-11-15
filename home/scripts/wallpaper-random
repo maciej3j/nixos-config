@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Losuje tapetę z katalogu i ustawia ją przez hyprpaper.
+# Nazwa monitora jest wykrywana automatycznie (DP-2 na desktopie, eDP-1 na laptopie).
+
+WALLPAPER_DIR="$HOME/Pictures/wallpapers/catppuccin-mocha"
+
+if ! pgrep -x hyprpaper >/dev/null; then
+  hyprpaper &
+  sleep 1
+fi
+
+WALLPAPER=$(find "$WALLPAPER_DIR" -type f \
+  \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
+  | shuf -n 1)
+
+MONITOR=$(hyprctl monitors -j | grep -o '"name": *"[^"]*"' | head -n1 | cut -d'"' -f4)
+MONITOR=${MONITOR:-$(hyprctl monitors | awk '/^Monitor/{print $2; exit}')}
+
+hyprctl hyprpaper wallpaper "${MONITOR},${WALLPAPER}"
